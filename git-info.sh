@@ -67,6 +67,7 @@ function oh_my_git_info {
 	if [[ -z "${use_color_off}" ]]; then local use_color_off=false; fi
 	if [[ -z "${print_unactive_flags_space}" ]]; then local print_unactive_flags_space=true; fi
 	if [[ -z "${display_git_symbol}" ]]; then local display_git_symbol=true; fi
+	if [[ -z "${display_git_current_action}" ]]; then local display_git_current_action=false; fi
 
 
 	# Git info
@@ -210,6 +211,12 @@ function oh_my_git_info {
 			oh_my_git_string="${oh_my_git_string} ${tag_name_color}[${tag_at_current_commit}]${reset}";
 		fi
 		
+		if [[ $display_git_current_action == "left" ]]; then
+			oh_my_git_string="$(git_current_action $red $reset) ${oh_my_git_string}";
+		elif [[ $display_git_current_action == "right" ]]; then
+			oh_my_git_string="${oh_my_git_string} $(git_current_action $red $reset)";
+		fi
+		
 		# clean up leading and trailing spaces, (prefix and suffix might add them if wanted)
 		oh_my_git_string=$(trim "$oh_my_git_string");
 		
@@ -218,6 +225,46 @@ function oh_my_git_info {
 
 	# collapse contiguous spaces including new lines
 	echo $(echo "${oh_my_git_string}")
+}
+
+
+# based on bash __git_ps1 to read branch and current action
+function git_current_action () {
+	local info="$(git rev-parse --git-dir 2>/dev/null)"
+	if [ -n "$info" ]; then
+		local action
+		if [ -f "$info/rebase-merge/interactive" ]
+			then
+			action=${is_rebasing_interactively:-"REBASE-i"}
+		elif [ -d "$info/rebase-merge" ]
+			then
+			action=${is_rebasing_merge:-"REBASE-m"}
+		else
+			if [ -d "$info/rebase-apply" ]
+				then
+				if [ -f "$info/rebase-apply/rebasing" ]
+					then
+					action=${is_rebasing:-"REBASE"}
+				elif [ -f "$info/rebase-apply/applying" ]
+					then
+					action=${is_applying_mailbox_patches:-"|AM"}
+				else
+					action=${is_rebasing_mailbox_patches:-"AM/REBASE"}
+				fi
+			elif [ -f "$info/MERGE_HEAD" ]
+				then
+				action=${is_merging:-"MERGING"}
+			elif [ -f "$info/CHERRY_PICK_HEAD" ]
+				then
+				action=${is_cherry_picking:-"CHERRY-PICKING"}
+			elif [ -f "$info/BISECT_LOG" ]
+				then
+				action=${is_bisecting:-"BISECTING"}
+			fi  
+		fi
+		
+		if [[ -n $action ]]; then printf "%s" "${1-}$action${2-}"; fi
+	fi
 }
 
 
